@@ -10,6 +10,7 @@ from .caffe import get_caffe_resolver, has_pycaffe
 from .errors import KaffeError, print_stderr
 from .layers import NodeKind
 
+from .tensorflow import network
 
 class DataInjector(object):
     '''
@@ -133,7 +134,12 @@ class DataReshaper(object):
                 output_channels = fc_shape[0]
                 weights = weights.reshape((output_channels, in_shape.channels, in_shape.height,
                                            in_shape.width))
-                weights = weights.transpose(self.map(NodeKind.Convolution))
+                if network.DEFAULT_DATA_FORMAT == 'NHWC':
+                    # (c_o, c_i, h, w) -> (h, w, c_i, c_o)
+                    weights = weights.transpose([2, 3, 1, 0])
+                else:
+                    # (c_o, c_i, h, w) -> (c_i, h, w, c_o)
+                    weights = weights.transpose([1, 2, 3, 0])
                 node.reshaped_data = weights.reshape(fc_shape[transpose_order[0]],
                                                      fc_shape[transpose_order[1]])
             else:

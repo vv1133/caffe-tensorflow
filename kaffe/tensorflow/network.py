@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 DEFAULT_PADDING = 'SAME'
+DEFAULT_DATA_FORMAT = 'NCHW'
 
 
 def layer(op):
@@ -117,12 +118,17 @@ class Network(object):
         # Verify that the padding is acceptable
         self.validate_padding(padding)
         # Get the number of channels in the input
-        c_i = input.get_shape()[-1]
+        if DEFAULT_DATA_FORMAT == 'NHWC':
+            c_i = input.get_shape()[-1]
+            strides = [1, s_h, s_w, 1]
+        else:
+            c_i = input.get_shape()[1]
+            strides = [1, 1, s_h, s_w]
         # Verify that the grouping parameter is valid
         assert c_i % group == 0
         assert c_o % group == 0
         # Convolution for a given input and kernel
-        convolve = lambda i, k: tf.nn.conv2d(i, k, [1, s_h, s_w, 1], padding=padding)
+        convolve = lambda i, k: tf.nn.conv2d(i, k, strides, data_format=DEFAULT_DATA_FORMAT, padding=padding)
         with tf.variable_scope(name) as scope:
             kernel = self.make_var('weights', shape=[k_h, k_w, c_i / group, c_o])
             if group == 1:
@@ -138,7 +144,7 @@ class Network(object):
             # Add the biases
             if biased:
                 biases = self.make_var('biases', [c_o])
-                output = tf.nn.bias_add(output, biases)
+                output = tf.nn.bias_add(output, biases, data_format=DEFAULT_DATA_FORMAT)
             if relu:
                 # ReLU non-linearity
                 output = tf.nn.relu(output, name=scope.name)
@@ -151,18 +157,32 @@ class Network(object):
     @layer
     def max_pool(self, input, k_h, k_w, s_h, s_w, name, padding=DEFAULT_PADDING):
         self.validate_padding(padding)
+        if DEFAULT_DATA_FORMAT == 'NHWC':
+            ksize = [1, k_h, k_w, 1]
+            strides = [1, s_h, s_w, 1]
+        else:
+            ksize = [1, 1, k_h, k_w]
+            strides = [1, 1, s_h, s_w]
         return tf.nn.max_pool(input,
-                              ksize=[1, k_h, k_w, 1],
-                              strides=[1, s_h, s_w, 1],
+                              ksize=ksize,
+                              strides=strides,
+                              data_format=DEFAULT_DATA_FORMAT,
                               padding=padding,
                               name=name)
 
     @layer
     def avg_pool(self, input, k_h, k_w, s_h, s_w, name, padding=DEFAULT_PADDING):
         self.validate_padding(padding)
+        if DEFAULT_DATA_FORMAT == 'NHWC':
+            ksize = [1, k_h, k_w, 1]
+            strides = [1, s_h, s_w, 1]
+        else:
+            ksize = [1, 1, k_h, k_w]
+            strides = [1, 1, s_h, s_w]
         return tf.nn.avg_pool(input,
-                              ksize=[1, k_h, k_w, 1],
-                              strides=[1, s_h, s_w, 1],
+                              ksize=ksize,
+                              strides=strides,
+                              data_format=DEFAULT_DATA_FORMAT,
                               padding=padding,
                               name=name)
 
@@ -208,10 +228,16 @@ class Network(object):
             # For certain models (like NiN), the singleton spatial dimensions
             # need to be explicitly squeezed, since they're not broadcast-able
             # in TensorFlow's NHWC ordering (unlike Caffe's NCHW).
-            if input_shape[1] == 1 and input_shape[2] == 1:
-                input = tf.squeeze(input, squeeze_dims=[1, 2])
+            if DEFAULT_DATA_FORMAT == 'NHWC':
+                if input_shape[1] == 1 and input_shape[2] == 1:
+                    input = tf.squeeze(input, squeeze_dims=[1, 2])
+                else:
+                    raise ValueError('Rank 2 tensor input expected for softmax!')
             else:
-                raise ValueError('Rank 2 tensor input expected for softmax!')
+                if input_shape[2] == 1 and input_shape[3] == 1:
+                    input = tf.squeeze(input, squeeze_dims=[2, 3])
+                else:
+                    raise ValueError('Rank 2 tensor input expected for softmax!')
         return tf.nn.softmax(input, name=name)
 
     @layer
