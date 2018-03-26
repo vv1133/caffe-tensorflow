@@ -100,7 +100,7 @@ class Network(object):
 
     def validate_padding(self, padding):
         '''Verifies that the padding is one of the supported ones.'''
-        assert padding in ('SAME', 'VALID')
+        assert padding in ('SAME', 'VALID') or type(padding) is tuple
 
     @layer
     def conv(self,
@@ -128,9 +128,18 @@ class Network(object):
         assert c_i % group == 0
         assert c_o % group == 0
         # Convolution for a given input and kernel
-        convolve = lambda i, k: tf.nn.conv2d(i, k, strides, data_format=DEFAULT_DATA_FORMAT, padding=padding)
+        padding_format = 'SAME' if padding == 'SAME' else 'VALID'
+        convolve = lambda i, k: tf.nn.conv2d(i, k, strides, data_format=DEFAULT_DATA_FORMAT, padding=padding_format)
         with tf.variable_scope(name) as scope:
             kernel = self.make_var('weights', shape=[k_h, k_w, c_i / group, c_o])
+            # Support arbitrary padding values
+            if type(padding) is tuple:
+                pad_h, pad_w = padding
+                if DEFAULT_DATA_FORMAT == 'NHWC':
+                    paddings = [[0, 0], [pad_h, pad_h], [pad_w, pad_w], [0, 0]]
+                else:
+                    paddings = [[0, 0], [0, 0], [pad_h, pad_h], [pad_w, pad_w]]
+                input = tf.pad(input, paddings, 'CONSTANT')
             if group == 1:
                 # This is the common-case. Convolve the input without any further complications.
                 output = convolve(input, kernel)

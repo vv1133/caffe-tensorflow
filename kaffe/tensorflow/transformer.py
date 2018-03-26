@@ -26,7 +26,7 @@ def get_padding_type(kernel_params, input_shape, output_shape):
     v_o_w = np.ceil((input_shape.width - k_w + 1.0) / float(s_w))
     if (output_shape.height == v_o_h) and (output_shape.width == v_o_w):
         return 'VALID'
-    return None
+    return (p_h, p_w)
 
 
 class TensorFlowNode(object):
