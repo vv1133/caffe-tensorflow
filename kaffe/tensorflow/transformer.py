@@ -67,8 +67,7 @@ class MaybeActivated(object):
 
     def __init__(self, node, default=True):
         self.inject_kwargs = {}
-        if node.metadata.get('relu', False) != default:
-            self.inject_kwargs['relu'] = not default
+        self.inject_kwargs['relu'] = node.metadata.get('relu', False)
 
     def __call__(self, *args, **kwargs):
         kwargs.update(self.inject_kwargs)

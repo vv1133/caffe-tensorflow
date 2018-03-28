@@ -208,8 +208,11 @@ class ReLUFuser(SubNodeFuser):
         return ((self.allowed_parent_types is None or parent.kind in self.allowed_parent_types) and
                 child.kind == NodeKind.ReLU)
 
-    def merge(self, parent, _):
-        parent.metadata['relu'] = True
+    def merge(self, parent, child):
+        if child.layer.parameters:
+            parent.metadata['relu'] = child.layer.parameters.negative_slope
+        else:
+            parent.metadata['relu'] = True
 
 
 class BatchNormScaleBiasFuser(SubNodeFuser):

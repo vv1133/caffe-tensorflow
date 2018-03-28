@@ -156,7 +156,10 @@ class Network(object):
                 output = tf.nn.bias_add(output, biases, data_format=DEFAULT_DATA_FORMAT)
             if relu:
                 # ReLU non-linearity
-                output = tf.nn.relu(output, name=scope.name)
+                if relu is True:
+                    output = tf.nn.relu(output, name=scope.name)
+                else:
+                    output = tf.nn.leaky_relu(output, relu)
             return output
 
     @layer
